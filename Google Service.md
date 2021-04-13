@@ -1,4 +1,4 @@
-​	Các dịch vụ của Google Play cung cấp một loạt các SDK trên Android để giúp bạn xây dựng ứng dụng của mình, tăng cường quyền riêng tư và bảo mật, thu hút người dùng và phát triển doanh nghiệp của bạn. Các SDK này đặc biệt ở chỗ chúng chỉ yêu cầu đưa vào ứng dụng của bạn một thư viện ứng dụng mỏng, như được minh họa trong hình 1. Trong thời gian chạy, thư viện ứng dụng giao tiếp với phần lớn quá trình triển khai của SDK và dấu ấn trong các dịch vụ của Google Play.
+Các dịch vụ của Google Play cung cấp một loạt các SDK trên Android để giúp bạn xây dựng ứng dụng của mình, tăng cường quyền riêng tư và bảo mật, thu hút người dùng và phát triển doanh nghiệp của bạn. Các SDK này đặc biệt ở chỗ chúng chỉ yêu cầu đưa vào ứng dụng của bạn một thư viện ứng dụng mỏng, như được minh họa trong hình 1. Trong thời gian chạy, thư viện ứng dụng giao tiếp với phần lớn quá trình triển khai của SDK và dấu ấn trong các dịch vụ của Google Play.
 
 
 
@@ -205,6 +205,122 @@ public Task<Location> getLastLocationIfApiAvailable(Context context) {
 }
 ```
 
+## Accessing Google APIs with GoogleApiClient
+
+Bạn có thể sử dụng đối tượng GoogleApiClient ("Ứng dụng khách Google API") để truy cập các API của Google được cung cấp trong thư viện dịch vụ của Google Play (chẳng hạn như Đăng nhập bằng Google, Trò chơi và Drive). Ứng dụng Google API cung cấp một điểm vào chung cho các dịch vụ của Google Play và quản lý kết nối mạng giữa thiết bị của người dùng và từng dịch vụ của Google.
+
+Tuy nhiên, giao diện GoogleApi mới hơn và các triển khai của nó dễ sử dụng hơn và là cách ưa thích để truy cập các API dịch vụ Play. Xem Truy cập API của Google.
+
+Hướng dẫn này chỉ ra cách bạn có thể:
+
+​    Tự động quản lý kết nối của bạn với các dịch vụ của Google Play.
+​    Thực hiện lệnh gọi API đồng bộ và không đồng bộ tới bất kỳ dịch vụ nào của Google Play.
+​    Quản lý thủ công kết nối của bạn với các dịch vụ của Google Play trong những trường hợp hiếm hoi cần thiết. Để tìm hiểu thêm, hãy xem Kết nối được quản lý thủ công.
+
+Để bắt đầu, trước tiên bạn phải cài đặt thư viện dịch vụ của Google Play (bản sửa đổi 15 trở lên) cho Android SDK của mình. Nếu bạn chưa làm như vậy, hãy làm theo hướng dẫn trong Thiết lập SDK dịch vụ của Google Play.
+
+Bắt đầu kết nối được quản lý tự động
+Sau khi dự án của bạn được liên kết với thư viện dịch vụ của Google Play, hãy tạo một phiên bản của GoogleApiClient bằng cách sử dụng API GoogleApiClient.Builder trong phương thức onCreate () của hoạt động của bạn. Lớp GoogleApiClient.Builder cung cấp các phương thức cho phép bạn chỉ định API Google bạn muốn sử dụng và phạm vi OAuth 2.0 mong muốn của bạn. Dưới đây là một ví dụ mã tạo một bản sao GoogleApiClient kết nối với dịch vụ Google Drive:
+
+```java
+GoogleApiClient mGoogleApiClient = new GoogleApiClient.Builder(this)
+    .enableAutoManage(this /* FragmentActivity */,
+                      this /* OnConnectionFailedListener */)
+    .addApi(Drive.API)
+    .addScope(Drive.SCOPE_FILE)
+    .build();
+```
+
+Bạn có thể thêm nhiều API và nhiều phạm vi vào cùng một GoogleApiClient bằng cách thêm các lệnh gọi bổ sung vào addApi () và addScope ().
+
+Quan trọng: Nếu bạn đang thêm API có thể đeo cùng với các API khác vào GoogleApiClient, bạn có thể gặp phải lỗi kết nối ứng dụng khách trên các thiết bị chưa cài đặt ứng dụng Wear OS. Để tránh lỗi kết nối, hãy gọi phương thức addApiIfAvailable () và chuyển vào API có thể đeo được để cho phép ứng dụng khách của bạn xử lý API bị thiếu một cách linh hoạt. Để biết thêm thông tin, hãy xem Truy cập API có thể đeo.
+
+Để bắt đầu kết nối được quản lý tự động, bạn phải chỉ định triển khai cho giao diện OnConnectionFailedListener để nhận lỗi kết nối không thể khắc phục được. Khi phiên bản GoogleApiClient được quản lý tự động của bạn cố gắng kết nối với Google API, nó sẽ tự động hiển thị giao diện người dùng để cố gắng khắc phục mọi lỗi kết nối có thể giải quyết được (ví dụ: nếu các dịch vụ của Google Play cần được cập nhật). Nếu lỗi xảy ra mà không thể khắc phục được, bạn sẽ nhận được cuộc gọi đến onConnectionFailed ().
+
+Bạn cũng có thể chỉ định một triển khai tùy chọn cho giao diện ConnectionCallbacks nếu ứng dụng của bạn cần biết khi nào kết nối được quản lý tự động được thiết lập hoặc tạm ngừng. Ví dụ: nếu ứng dụng của bạn thực hiện lệnh gọi để ghi dữ liệu vào các API của Google, thì các lệnh này sẽ chỉ được gọi sau khi phương thức onConnected () đã được gọi.
+
+Dưới đây là một hoạt động ví dụ triển khai các giao diện gọi lại và thêm chúng vào Ứng dụng khách API của Google:
+
+
+
+```java
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import gms.drive.*;
+import android.support.v4.app.FragmentActivity;
+
+public class MyActivity extends FragmentActivity
+        implements OnConnectionFailedListener {
+    private GoogleApiClient mGoogleApiClient;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Create a GoogleApiClient instance
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .enableAutoManage(this /* FragmentActivity */,
+                                  this /* OnConnectionFailedListener */)
+                .addApi(Drive.API)
+                .addScope(Drive.SCOPE_FILE)
+                .build();
+
+        // ...
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult result) {
+        // An unresolvable error has occurred and a connection to Google APIs
+        // could not be established. Display an error message, or handle
+        // the failure silently
+
+        // ...
+    }
+}
+```
+
+Phiên bản GoogleApiClient của bạn sẽ tự động kết nối sau khi hoạt động của bạn gọi onStart () và ngắt kết nối sau khi gọi onStop (). Ứng dụng của bạn có thể bắt đầu thực hiện ngay các yêu cầu đọc đối với Google API sau khi xây dựng GoogleApiClient mà không cần đợi kết nối hoàn tất.
+
+Giao tiếp với các dịch vụ của Google
+
+Sau khi kết nối, khách hàng của bạn có thể thực hiện các cuộc gọi đọc và ghi bằng cách sử dụng các API dành riêng cho dịch vụ mà ứng dụng của bạn được ủy quyền, như được chỉ định bởi các API và phạm vi mà bạn đã thêm vào bản sao GoogleApiClient của mình.
+
+Lưu ý: Trước khi thực hiện cuộc gọi đến các dịch vụ cụ thể của Google, trước tiên bạn có thể cần đăng ký ứng dụng của mình trong Bảng điều khiển dành cho nhà phát triển của Google. Để biết hướng dẫn, hãy tham khảo hướng dẫn bắt đầu thích hợp cho API bạn đang sử dụng, chẳng hạn như Google Drive hoặc Đăng nhập bằng Google.
+
+Khi bạn thực hiện một yêu cầu đọc hoặc ghi bằng GoogleApiClient, ứng dụng khách API sẽ trả về một đối tượng PendingResult đại diện cho yêu cầu đó. Điều này xảy ra ngay lập tức, trước khi yêu cầu được gửi đến dịch vụ Google mà ứng dụng của bạn đang gọi.
+
+Ví dụ: đây là yêu cầu đọc tệp từ Google Drive cung cấp đối tượng PendingResult:
+
+```java
+Query query = new Query.Builder()
+        .addFilter(Filters.eq(SearchableField.TITLE, filename));
+PendingResult<DriveApi.MetadataBufferResult> result = Drive.DriveApi.query(mGoogleApiClient, query);
+```
+
+Sau khi ứng dụng của bạn có đối tượng PendingResult, ứng dụng của bạn sau đó có thể chỉ định xem yêu cầu được xử lý dưới dạng cuộc gọi không đồng bộ hay dưới dạng cuộc gọi đồng bộ.
+
+Mẹo: Ứng dụng của bạn có thể xếp hàng đợi các yêu cầu đọc khi không được kết nối với các dịch vụ của Google Play. Ví dụ: ứng dụng của bạn có thể gọi các phương thức để đọc tệp từ Google Drive bất kể phiên bản GoogleApiClient của bạn đã được kết nối chưa. Sau khi kết nối được thiết lập, các yêu cầu đọc được xếp hàng sẽ thực thi. Yêu cầu viết tạo ra lỗi nếu ứng dụng của bạn gọi các dịch vụ của Google Play các phương thức ghi trong khi Ứng dụng khách Google API của bạn không được kết nối.
+Sử dụng cuộc gọi không đồng bộ
+Để thực hiện yêu cầu không đồng bộ, hãy gọi setResultCallback () trên PendingResult và cung cấp triển khai giao diện ResultCallback. Ví dụ: đây là yêu cầu được thực thi không đồng bộ:
+
+```java
+private void loadFile(String filename) {
+    // Create a query for a specific filename in Drive.
+    Query query = new Query.Builder()
+            .addFilter(Filters.eq(SearchableField.TITLE, filename))
+            .build();
+    // Invoke the query asynchronously with a callback method
+    Drive.DriveApi.query(mGoogleApiClient, query)
+            .setResultCallback(new ResultCallback<DriveApi.MetadataBufferResult>() {
+        @Override
+        public void onResult(DriveApi.MetadataBufferResult result) {
+            // Success! Handle the query result.
+            // ...
+        }
+    });
+}
+```
+
 ## Triển khai SDK ADMODS
 
 - Import The Mobile Ads SDK
@@ -288,3 +404,4 @@ public Task<Location> getLastLocationIfApiAvailable(Context context) {
   ```
 
   
+
